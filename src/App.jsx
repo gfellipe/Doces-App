@@ -1,14 +1,17 @@
 import { useState, useEffect } from "react";
-import { Search, Plus, Trash, Pencil, Check, ShoppingBag } from "lucide-react";
+import { Plus, Trash2, XCircle, Edit2, Save, X } from "lucide-react";
 
 export default function App() {
-  const [abaAtiva, setAbaAtiva] = useState("encomendas");
   const [encomendas, setEncomendas] = useState(() => JSON.parse(localStorage.getItem("encomendas")) || []);
-  const [gastos, setGastos] = useState(() => JSON.parse(localStorage.getItem("gastos")) || []);
-  const [busca, setBusca] = useState("");
-  const [statusFiltro, setStatusFiltro] = useState("todos");
-  const [pagina, setPagina] = useState(1);
-  const porPagina = 10;
+  const [gastos, setGastos] = useState(() => {
+    const dados = JSON.parse(localStorage.getItem("gastos"));
+    return Array.isArray(dados) ? dados.filter(g => typeof g.valor === "number") : [];
+  });
+  const [aba, setAba] = useState("encomendas");
+  const [novaEncomenda, setNovaEncomenda] = useState({ nome: "", item: "", quantidade: "", valor: "", pagamento: "nao_pago", dataEntrega: "", status: "pendente" });
+  const [novoGasto, setNovoGasto] = useState({ descricao: "", valor: "" });
+  const [filtroStatus, setFiltroStatus] = useState("");
+  const [editando, setEditando] = useState(null);
 
   useEffect(() => {
     localStorage.setItem("encomendas", JSON.stringify(encomendas));
@@ -18,251 +21,167 @@ export default function App() {
     localStorage.setItem("gastos", JSON.stringify(gastos));
   }, [gastos]);
 
-  useEffect(() => {
-    const hoje = new Date().toISOString().split("T")[0];
-    const alertaEntregas = encomendas.filter(
-      (e) => e.status !== "entregue" && e.dataEntrega <= hoje
-    );
-    if (alertaEntregas.length > 0) {
-      const nomes = alertaEntregas.map((e) => e.nome).join(", ");
-      alert(`Entregas pendentes para hoje ou atrasadas: ${nomes}`);
-    }
-  }, []);
+  const formatarValor = (valor) => `R$ ${Number(valor || 0).toFixed(2)}`;
 
-  const encomendasFiltradas = encomendas
-    .filter((e) =>
-      e.nome.toLowerCase().includes(busca.toLowerCase()) &&
-      (statusFiltro === "todos" || e.status === statusFiltro)
-    )
-    .sort((a, b) => new Date(a.dataEntrega) - new Date(b.dataEntrega));
-
-  const encomendasPaginadas = encomendasFiltradas.slice(0, pagina * porPagina);
-
-  const novaEncomenda = {
-    id: Date.now(),
-    nome: "",
-    itens: "",
-    quantidade: 1,
-    valor: 0,
-    status: "nao_pago",
-    dataEntrega: new Date().toISOString().split("T")[0],
+  const handleAddEncomenda = () => {
+    if (!novaEncomenda.nome) return;
+    const valorNumerico = parseFloat(novaEncomenda.valor.replace("R$", "").replace(",", ".")) || 0;
+    const nova = {
+      ...novaEncomenda,
+      id: Date.now(),
+      valor: valorNumerico
+    };
+    setEncomendas([nova, ...encomendas]);
+    setNovaEncomenda({ nome: "", item: "", quantidade: "", valor: "", pagamento: "nao_pago", dataEntrega: "", status: "pendente" });
   };
 
-  function atualizarEncomenda(id, campo, valor) {
-    setEncomendas((prev) =>
-      prev.map((e) => (e.id === id ? { ...e, [campo]: valor } : e))
-    );
-  }
+  const handleRemoveEncomenda = (id) => {
+    setEncomendas(encomendas.filter((e) => e.id !== id));
+  };
 
-  function removerEncomenda(id) {
-    const confirmar = confirm("Tem certeza que deseja remover esta encomenda?");
-    if (confirmar) {
-      setEncomendas((prev) => prev.filter((e) => e.id !== id));
-    }
-  }
+  const handleRemoveGasto = (id) => {
+    setGastos(gastos.filter((g) => g.id !== id));
+  };
 
-  function adicionarGasto() {
-    const novo = { id: Date.now(), descricao: "", valor: 0, categoria: "geral" };
+  const handleAddGasto = () => {
+    if (!novoGasto.descricao || !novoGasto.valor) return;
+    const novo = {
+      ...novoGasto,
+      id: Date.now(),
+      valor: parseFloat(novoGasto.valor.replace("R$", "").replace(",", ".")) || 0
+    };
     setGastos([novo, ...gastos]);
-  }
+    setNovoGasto({ descricao: "", valor: "" });
+  };
 
-  function atualizarGasto(id, campo, valor) {
-    setGastos((prev) =>
-      prev.map((g) => (g.id === id ? { ...g, [campo]: valor } : g))
-    );
-  }
+  const totalArrecadado = encomendas.reduce((acc, e) => {
+    if (e.pagamento === "pago") return acc + Number(e.valor || 0);
+    if (e.pagamento === "sinal") return acc + Number(e.valor || 0) / 2;
+    return acc;
+  }, 0);
 
-  function removerGasto(id) {
-    const confirmar = confirm("Remover este gasto?");
-    if (confirmar) {
-      setGastos((prev) => prev.filter((g) => g.id !== id));
-    }
-  }
-
-  const totalArrecadado = encomendas
-    .filter((e) => e.status === "pago" || e.status === "entregue")
-    .reduce((soma, e) => soma + Number(e.valor || 0), 0);
-
-  const totalGastos = gastos.reduce((soma, g) => soma + Number(g.valor || 0), 0);
+  const totalGastos = gastos.reduce((acc, g) => acc + Number(g.valor || 0), 0);
 
   const lucroLiquido = totalArrecadado - totalGastos;
 
+  const encomendasFiltradas = filtroStatus ? encomendas.filter(e => e.status === filtroStatus) : encomendas;
+
+  const handleEditar = (encomenda) => {
+    setEditando({ ...encomenda });
+  };
+
+  const handleSalvar = () => {
+    setEncomendas(encomendas.map(e => e.id === editando.id ? editando : e));
+    setEditando(null);
+  };
+
+  const handleCancelar = () => {
+    setEditando(null);
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-pink-100 via-blue-50 to-white text-gray-800">
-      <header className="text-center py-4 text-2xl font-bold text-pink-600">
-        Doces com Amor 🍬
-      </header>
+    <div className="min-h-screen bg-gradient-to-b from-pink-100 via-blue-50 to-white text-gray-800 p-4">
+      <header className="text-center py-4 text-2xl font-bold text-pink-600">Doces com Amor 🍬</header>
 
-      {abaAtiva === "encomendas" && (
-        <div className="px-4 pb-24">
-          <div className="flex items-center gap-2 mb-2">
-            <input
-              type="text"
-              placeholder="Buscar por nome..."
-              className="w-full border rounded px-3 py-2"
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-            />
-            <button
-              className="bg-pink-300 hover:bg-pink-400 text-white px-3 py-2 rounded"
-              onClick={() => setEncomendas([novaEncomenda, ...encomendas])}
-            >
-              <Plus size={20} />
-            </button>
-          </div>
-
-          <div className="flex gap-2 justify-center mb-4 flex-wrap">
-            {['todos','nao_pago','sinal','pago','entregue'].map(st => (
-              <button
-                key={st}
-                onClick={() => setStatusFiltro(st)}
-                className={`px-3 py-1 rounded ${statusFiltro === st ? "bg-pink-400 text-white" : "bg-white border"}`}
-              >
-                {st === 'todos' ? 'Todos' : st === 'nao_pago' ? 'Não pago' : st === 'sinal' ? '50% Sinal' : st.charAt(0).toUpperCase() + st.slice(1)}
-              </button>
-            ))}
-          </div>
-
-          {encomendasPaginadas.map((e) => (
-            <div key={e.id} className="mb-4 rounded-lg bg-white p-4 shadow">
-              <input
-                value={e.nome}
-                onChange={(ev) => atualizarEncomenda(e.id, "nome", ev.target.value)}
-                className="font-semibold text-lg w-full mb-1"
-                placeholder="Nome do cliente"
-              />
-              <input
-                value={e.itens}
-                onChange={(ev) => atualizarEncomenda(e.id, "itens", ev.target.value)}
-                className="w-full border px-2 py-1 mb-1"
-                placeholder="Itens"
-              />
-              <div className="flex gap-2 mb-1">
-                <input
-                  type="number"
-                  value={e.quantidade}
-                  onChange={(ev) => atualizarEncomenda(e.id, "quantidade", ev.target.value)}
-                  className="w-1/3 border px-2 py-1"
-                  placeholder="Qtd"
-                />
-                <input
-                  type="number"
-                  value={e.valor}
-                  onChange={(ev) => atualizarEncomenda(e.id, "valor", ev.target.value)}
-                  className="w-1/3 border px-2 py-1"
-                  placeholder="Valor total"
-                />
-                <input
-                  type="date"
-                  value={e.dataEntrega}
-                  onChange={(ev) => atualizarEncomenda(e.id, "dataEntrega", ev.target.value)}
-                  className="w-1/3 border px-2 py-1"
-                />
-              </div>
-              <select
-                value={e.status}
-                onChange={(ev) => atualizarEncomenda(e.id, "status", ev.target.value)}
-                className="w-full border px-2 py-1 mb-2"
-              >
-                <option value="nao_pago">Não pago</option>
-                <option value="sinal">50% Sinal</option>
-                <option value="pago">Pago</option>
-                <option value="entregue">Entregue</option>
-              </select>
-              <button
-                onClick={() => removerEncomenda(e.id)}
-                className="text-red-500 flex items-center gap-1"
-              >
-                <Trash size={16} /> Remover
-              </button>
-            </div>
-          ))}
-
-          {encomendasPaginadas.length < encomendasFiltradas.length && (
-            <button
-              onClick={() => setPagina((p) => p + 1)}
-              className="w-full text-center py-2 bg-blue-100 rounded mb-4"
-            >
-              Ver mais
-            </button>
-          )}
-        </div>
-      )}
-
-      {abaAtiva === "gastos" && (
-        <div className="px-4 pb-24">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold">Gastos</h2>
-            <button onClick={adicionarGasto} className="bg-pink-300 hover:bg-pink-400 text-white px-3 py-1 rounded">
-              <Plus size={18} />
-            </button>
-          </div>
-          {gastos.length === 0 && <p className="text-gray-500">Nenhum gasto ainda.</p>}
-          {gastos.map((g) => (
-            <div key={g.id} className="bg-white rounded shadow p-3 mb-3">
-              <input
-                value={g.descricao}
-                onChange={(e) => atualizarGasto(g.id, "descricao", e.target.value)}
-                className="w-full mb-1 font-medium"
-                placeholder="Descrição"
-              />
-              <div className="flex gap-2">
-                <input
-                  type="number"
-                  value={g.valor}
-                  onChange={(e) => atualizarGasto(g.id, "valor", e.target.value)}
-                  className="w-1/2 border px-2 py-1"
-                  placeholder="Valor"
-                />
-                <input
-                  value={g.categoria}
-                  onChange={(e) => atualizarGasto(g.id, "categoria", e.target.value)}
-                  className="w-1/2 border px-2 py-1"
-                  placeholder="Categoria"
-                />
-              </div>
-              <button
-                onClick={() => removerGasto(g.id)}
-                className="text-red-500 flex items-center gap-1 mt-2"
-              >
-                <Trash size={16} /> Remover
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {abaAtiva === "relatorio" && (
-        <div className="px-4 pb-24">
-          <h2 className="text-xl font-bold text-center mb-4">Relatório Financeiro</h2>
-          <div className="bg-white rounded shadow p-4 text-lg space-y-2">
-            <p><strong>Total arrecadado:</strong> R$ {totalArrecadado.toFixed(2)}</p>
-            <p><strong>Total de gastos:</strong> R$ {totalGastos.toFixed(2)}</p>
-            <p><strong>Lucro líquido:</strong> R$ {lucroLiquido.toFixed(2)}</p>
-          </div>
-        </div>
-      )}
-
-      <nav className="fixed bottom-0 w-full flex justify-around bg-white shadow-md py-2 border-t z-50">
-        <button
-          onClick={() => setAbaAtiva("encomendas")}
-          className={`flex flex-col items-center ${abaAtiva === "encomendas" ? "text-pink-500" : "text-gray-400"}`}
-        >
-          <ShoppingBag size={20} /> Encomendas
-        </button>
-        <button
-          onClick={() => setAbaAtiva("gastos")}
-          className={`flex flex-col items-center ${abaAtiva === "gastos" ? "text-pink-500" : "text-gray-400"}`}
-        >
-          <Trash size={20} /> Gastos
-        </button>
-        <button
-          onClick={() => setAbaAtiva("relatorio")}
-          className={`flex flex-col items-center ${abaAtiva === "relatorio" ? "text-pink-500" : "text-gray-400"}`}
-        >
-          <Check size={20} /> Relatório
-        </button>
+      <nav className="flex gap-4 justify-center my-4">
+        <button onClick={() => setAba("encomendas")} className={aba === "encomendas" ? "text-pink-600 font-bold" : "text-gray-500"}>Encomendas</button>
+        <button onClick={() => setAba("gastos")} className={aba === "gastos" ? "text-pink-600 font-bold" : "text-gray-500"}>Gastos</button>
+        <button onClick={() => setAba("relatorio")} className={aba === "relatorio" ? "text-pink-600 font-bold" : "text-gray-500"}>Relatório</button>
+        <button onClick={() => setAba("filtros")} className={aba === "filtros" ? "text-pink-600 font-bold" : "text-gray-500"}>Filtros</button>
       </nav>
+
+      {aba === "encomendas" && (
+        <div className="max-w-5xl mx-auto bg-white shadow rounded p-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-4">
+            <input value={novaEncomenda.nome} onChange={e => setNovaEncomenda({ ...novaEncomenda, nome: e.target.value })} placeholder="Nome do Cliente" className="border p-2 rounded" />
+            <input value={novaEncomenda.item} onChange={e => setNovaEncomenda({ ...novaEncomenda, item: e.target.value })} placeholder="Item" className="border p-2 rounded" />
+            <input value={novaEncomenda.quantidade} onChange={e => setNovaEncomenda({ ...novaEncomenda, quantidade: e.target.value })} placeholder="Quantidade" className="border p-2 rounded" />
+            <input value={novaEncomenda.valor} onChange={e => setNovaEncomenda({ ...novaEncomenda, valor: e.target.value })} placeholder="Valor (R$)" className="border p-2 rounded" />
+            <select value={novaEncomenda.pagamento} onChange={e => setNovaEncomenda({ ...novaEncomenda, pagamento: e.target.value })} className="border p-2 rounded">
+              <option value="nao_pago">Não Pago</option>
+              <option value="sinal">Sinal (50%)</option>
+              <option value="pago">Pago</option>
+            </select>
+            <input value={novaEncomenda.dataEntrega} onChange={e => setNovaEncomenda({ ...novaEncomenda, dataEntrega: e.target.value })} type="date" className="border p-2 rounded" />
+            <select value={novaEncomenda.status} onChange={e => setNovaEncomenda({ ...novaEncomenda, status: e.target.value })} className="border p-2 rounded">
+              <option value="pendente">Pendente</option>
+              <option value="atrasado">Atrasado</option>
+            </select>
+            <button onClick={handleAddEncomenda} className="bg-pink-500 text-white rounded px-4 py-2 col-span-2 md:col-span-1">Adicionar</button>
+          </div>
+
+          <table className="w-full text-left border-t">
+            <thead>
+              <tr>
+                <th className="p-2">Cliente</th>
+                <th>Item</th>
+                <th>Qtd</th>
+                <th>Valor</th>
+                <th>Pagamento</th>
+                <th>Entrega</th>
+                <th>Status</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {encomendasFiltradas.map((e) => (
+                <tr key={e.id} className="border-t">
+                  <td className="p-2">{e.nome}</td>
+                  <td>{e.item}</td>
+                  <td>{e.quantidade}</td>
+                  <td>{formatarValor(e.valor)}</td>
+                  <td>{e.pagamento}</td>
+                  <td>{e.dataEntrega}</td>
+                  <td>{e.status}</td>
+                  <td className="flex gap-2">
+                    <button onClick={() => handleEditar(e)} className="text-blue-500"><Edit2 size={16} /></button>
+                    <button onClick={() => handleRemoveEncomenda(e.id)} className="text-red-500"><Trash2 size={16} /></button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {aba === "gastos" && (
+        <div className="max-w-xl mx-auto bg-white shadow rounded p-4">
+          <h2 className="text-lg font-semibold mb-4">Adicionar Gasto</h2>
+          <div className="flex gap-2 mb-4">
+            <input value={novoGasto.descricao} onChange={e => setNovoGasto({ ...novoGasto, descricao: e.target.value })} placeholder="Descrição" className="border p-2 rounded w-full" />
+            <input value={novoGasto.valor} onChange={e => setNovoGasto({ ...novoGasto, valor: e.target.value })} placeholder="Valor (R$)" className="border p-2 rounded w-full" />
+            <button onClick={handleAddGasto} className="bg-pink-500 text-white rounded px-4 py-2">Adicionar</button>
+          </div>
+          <ul>
+            {gastos.map((g) => (
+              <li key={g.id} className="flex justify-between border-b py-2">
+                <span>{g.descricao} - {formatarValor(g.valor)}</span>
+                <button onClick={() => handleRemoveGasto(g.id)} className="text-red-500"><Trash2 size={16} /></button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {aba === "relatorio" && (
+        <div className="max-w-xl mx-auto bg-white shadow rounded p-4 text-center">
+          <h2 className="text-lg font-semibold mb-4">Relatório Financeiro</h2>
+          <p><strong>Total Arrecadado:</strong> {formatarValor(totalArrecadado)}</p>
+          <p><strong>Total de Gastos:</strong> {formatarValor(totalGastos)}</p>
+          <p><strong>Lucro Líquido:</strong> {formatarValor(lucroLiquido)}</p>
+        </div>
+      )}
+
+      {aba === "filtros" && (
+        <div className="max-w-xl mx-auto bg-white shadow rounded p-4">
+          <h2 className="text-lg font-semibold mb-4">Filtrar Encomendas</h2>
+          <select value={filtroStatus} onChange={e => setFiltroStatus(e.target.value)} className="border p-2 rounded w-full">
+            <option value="">Todas</option>
+            <option value="pendente">Pendente</option>
+            <option value="atrasado">Atrasado</option>
+          </select>
+        </div>
+      )}
     </div>
   );
 }
