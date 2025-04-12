@@ -83,7 +83,7 @@ export default function App() {
     <div className="min-h-screen bg-gradient-to-b from-pink-100 via-blue-50 to-white text-gray-800 p-4">
       <header className="text-center py-4 text-2xl font-bold text-pink-600">Doces com Amor 🍬</header>
 
-      <nav className="flex gap-4 justify-center my-4">
+      <nav className="flex flex-wrap justify-center gap-2 my-4 text-sm">
         <button onClick={() => setAba("encomendas")} className={aba === "encomendas" ? "text-pink-600 font-bold" : "text-gray-500"}>Encomendas</button>
         <button onClick={() => setAba("gastos")} className={aba === "gastos" ? "text-pink-600 font-bold" : "text-gray-500"}>Gastos</button>
         <button onClick={() => setAba("relatorio")} className={aba === "relatorio" ? "text-pink-600 font-bold" : "text-gray-500"}>Relatório</button>
@@ -91,12 +91,12 @@ export default function App() {
       </nav>
 
       {aba === "encomendas" && (
-        <div className="max-w-5xl mx-auto bg-white shadow rounded p-4">
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-4">
+        <div className="max-w-full overflow-x-auto bg-white shadow rounded p-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 mb-4">
             <input value={novaEncomenda.nome} onChange={e => setNovaEncomenda({ ...novaEncomenda, nome: e.target.value })} placeholder="Nome do Cliente" className="border p-2 rounded" />
             <input value={novaEncomenda.item} onChange={e => setNovaEncomenda({ ...novaEncomenda, item: e.target.value })} placeholder="Item" className="border p-2 rounded" />
             <input value={novaEncomenda.quantidade} onChange={e => setNovaEncomenda({ ...novaEncomenda, quantidade: e.target.value })} placeholder="Quantidade" className="border p-2 rounded" />
-            <input value={novaEncomenda.valor} onChange={e => setNovaEncomenda({ ...novaEncomenda, valor: e.target.value })} placeholder="Valor (R$)" className="border p-2 rounded" />
+            <input value={novaEncomenda.valor} onChange={e => setNovaEncomenda({ ...novaEncomenda, valor: e.target.value })} placeholder="Valor (R$ 00,00)" className="border p-2 rounded" />
             <select value={novaEncomenda.pagamento} onChange={e => setNovaEncomenda({ ...novaEncomenda, pagamento: e.target.value })} className="border p-2 rounded">
               <option value="nao_pago">Não Pago</option>
               <option value="sinal">Sinal (50%)</option>
@@ -107,54 +107,67 @@ export default function App() {
               <option value="pendente">Pendente</option>
               <option value="atrasado">Atrasado</option>
             </select>
-            <button onClick={handleAddEncomenda} className="bg-pink-500 text-white rounded px-4 py-2 col-span-2 md:col-span-1">Adicionar</button>
+            <button onClick={handleAddEncomenda} className="bg-pink-500 text-white rounded px-4 py-2 w-full sm:w-auto">Adicionar</button>
           </div>
 
-          <table className="w-full text-left border-t">
-            <thead>
-              <tr>
-                <th className="p-2">Cliente</th>
-                <th>Item</th>
-                <th>Qtd</th>
-                <th>Valor</th>
-                <th>Pagamento</th>
-                <th>Entrega</th>
-                <th>Status</th>
-                <th>Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {encomendasFiltradas.map((e) => (
-                <tr key={e.id} className="border-t">
-                  <td className="p-2">{e.nome}</td>
-                  <td>{e.item}</td>
-                  <td>{e.quantidade}</td>
-                  <td>{formatarValor(e.valor)}</td>
-                  <td>{e.pagamento}</td>
-                  <td>{e.dataEntrega}</td>
-                  <td>{e.status}</td>
-                  <td className="flex gap-2">
-                    <button onClick={() => handleEditar(e)} className="text-blue-500"><Edit2 size={16} /></button>
-                    <button onClick={() => handleRemoveEncomenda(e.id)} className="text-red-500"><Trash2 size={16} /></button>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="min-w-[700px] w-full text-left border-t">
+              <thead>
+                <tr className="bg-pink-100">
+                  <th className="p-2">Cliente</th>
+                  <th className="p-2">Item</th>
+                  <th className="p-2">Qtd</th>
+                  <th className="p-2">Valor</th>
+                  <th className="p-2">Pagamento</th>
+                  <th className="p-2">Entrega</th>
+                  <th className="p-2">Status</th>
+                  <th className="p-2">Ações</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {encomendasFiltradas.map((e) => (
+                  <tr key={e.id} className="border-t">
+                    <td className="p-2 whitespace-nowrap">{e.nome}</td>
+                    <td className="p-2 whitespace-nowrap">{e.item}</td>
+                    <td className="p-2 whitespace-nowrap">{e.quantidade}</td>
+                    <td className="p-2 whitespace-nowrap">{formatarValor(e.valor)}</td>
+                    <td className="p-2 whitespace-nowrap">{e.pagamento}</td>
+                    <td className="p-2 whitespace-nowrap">{e.dataEntrega}</td>
+                    <td className="p-2 whitespace-nowrap">{e.status}</td>
+                    <td className="p-2 whitespace-nowrap">
+                      <div className="flex gap-2">
+                        <button onClick={() => handleEditar(e)} className="text-blue-500"><Edit2 size={16} /></button>
+                        <button onClick={() => handleRemoveEncomenda(e.id)} className="text-red-500"><Trash2 size={16} /></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {aba === "relatorio" && (
+        <div className="bg-white shadow rounded p-4 mt-4">
+          <h2 className="text-lg font-semibold mb-2">Relatório Financeiro</h2>
+          <p>Total Arrecadado: <strong>{formatarValor(totalArrecadado)}</strong></p>
+          <p>Total de Gastos: <strong>{formatarValor(totalGastos)}</strong></p>
+          <p>Lucro Líquido: <strong>{formatarValor(lucroLiquido)}</strong></p>
         </div>
       )}
 
       {aba === "gastos" && (
-        <div className="max-w-xl mx-auto bg-white shadow rounded p-4">
-          <h2 className="text-lg font-semibold mb-4">Adicionar Gasto</h2>
-          <div className="flex gap-2 mb-4">
-            <input value={novoGasto.descricao} onChange={e => setNovoGasto({ ...novoGasto, descricao: e.target.value })} placeholder="Descrição" className="border p-2 rounded w-full" />
-            <input value={novoGasto.valor} onChange={e => setNovoGasto({ ...novoGasto, valor: e.target.value })} placeholder="Valor (R$)" className="border p-2 rounded w-full" />
-            <button onClick={handleAddGasto} className="bg-pink-500 text-white rounded px-4 py-2">Adicionar</button>
+        <div className="bg-white shadow rounded p-4 mt-4">
+          <h2 className="text-lg font-semibold mb-2">Gastos</h2>
+          <div className="flex gap-2 mb-2 flex-wrap">
+            <input value={novoGasto.descricao} onChange={e => setNovoGasto({ ...novoGasto, descricao: e.target.value })} placeholder="Descrição" className="border p-2 rounded flex-1" />
+            <input value={novoGasto.valor} onChange={e => setNovoGasto({ ...novoGasto, valor: e.target.value })} placeholder="Valor (R$)" className="border p-2 rounded flex-1" />
+            <button onClick={handleAddGasto} className="bg-blue-500 text-white rounded px-4 py-2">Adicionar</button>
           </div>
-          <ul>
-            {gastos.map((g) => (
-              <li key={g.id} className="flex justify-between border-b py-2">
+          <ul className="space-y-2">
+            {gastos.map(g => (
+              <li key={g.id} className="flex justify-between items-center border-b pb-1">
                 <span>{g.descricao} - {formatarValor(g.valor)}</span>
                 <button onClick={() => handleRemoveGasto(g.id)} className="text-red-500"><Trash2 size={16} /></button>
               </li>
@@ -163,20 +176,11 @@ export default function App() {
         </div>
       )}
 
-      {aba === "relatorio" && (
-        <div className="max-w-xl mx-auto bg-white shadow rounded p-4 text-center">
-          <h2 className="text-lg font-semibold mb-4">Relatório Financeiro</h2>
-          <p><strong>Total Arrecadado:</strong> {formatarValor(totalArrecadado)}</p>
-          <p><strong>Total de Gastos:</strong> {formatarValor(totalGastos)}</p>
-          <p><strong>Lucro Líquido:</strong> {formatarValor(lucroLiquido)}</p>
-        </div>
-      )}
-
       {aba === "filtros" && (
-        <div className="max-w-xl mx-auto bg-white shadow rounded p-4">
-          <h2 className="text-lg font-semibold mb-4">Filtrar Encomendas</h2>
-          <select value={filtroStatus} onChange={e => setFiltroStatus(e.target.value)} className="border p-2 rounded w-full">
-            <option value="">Todas</option>
+        <div className="bg-white shadow rounded p-4 mt-4">
+          <h2 className="text-lg font-semibold mb-2">Filtrar por Status</h2>
+          <select value={filtroStatus} onChange={e => setFiltroStatus(e.target.value)} className="border p-2 rounded">
+            <option value="">Todos</option>
             <option value="pendente">Pendente</option>
             <option value="atrasado">Atrasado</option>
           </select>
