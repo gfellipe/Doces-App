@@ -1,17 +1,28 @@
-import { useState, useEffect } from "react";
-import { Plus, Trash2, XCircle, Edit2, Save, X } from "lucide-react";
+import React, { useEffect, useState } from 'react';
 
 export default function App() {
-  const [encomendas, setEncomendas] = useState(() => JSON.parse(localStorage.getItem("encomendas")) || []);
-  const [gastos, setGastos] = useState(() => {
-    const dados = JSON.parse(localStorage.getItem("gastos"));
-    return Array.isArray(dados) ? dados.filter(g => typeof g.valor === "number") : [];
-  });
   const [aba, setAba] = useState("encomendas");
-  const [novaEncomenda, setNovaEncomenda] = useState({ nome: "", item: "", quantidade: "", valor: "", pagamento: "nao_pago", dataEntrega: "", status: "pendente" });
-  const [novoGasto, setNovoGasto] = useState({ descricao: "", valor: "" });
+  const [encomendas, setEncomendas] = useState(() => {
+    return JSON.parse(localStorage.getItem("encomendas") || "[]");
+  });
+
+  const [gastos, setGastos] = useState(() => {
+    return JSON.parse(localStorage.getItem("gastos") || "[]");
+  });
+
+  const [form, setForm] = useState({
+    nome: "",
+    item: "",
+    quantidade: "",
+    valor: "",
+    pagamento: "",
+    data: "",
+    status: "",
+  });
+
+  const [editIndex, setEditIndex] = useState(null);
+  const [filtro, setFiltro] = useState("");
   const [filtroStatus, setFiltroStatus] = useState("");
-  const [editando, setEditando] = useState(null);
 
   useEffect(() => {
     localStorage.setItem("encomendas", JSON.stringify(encomendas));
@@ -21,171 +32,236 @@ export default function App() {
     localStorage.setItem("gastos", JSON.stringify(gastos));
   }, [gastos]);
 
-  const formatarValor = (valor) => `R$ ${Number(valor || 0).toFixed(2)}`;
+  const handleInput = (e) => {
+    const { name, value } = e.target;
+    setForm((f) => ({ ...f, [name]: value }));
+  };
 
-  const handleAddEncomenda = () => {
-    if (!novaEncomenda.nome) return;
-    const valorNumerico = parseFloat(novaEncomenda.valor.replace("R$", "").replace(",", ".")) || 0;
-    const nova = {
-      ...novaEncomenda,
-      id: Date.now(),
-      valor: valorNumerico
+  const adicionar = () => {
+    if (editIndex !== null) {
+      const nova = [...encomendas];
+      nova[editIndex] = form;
+      setEncomendas(nova);
+      setEditIndex(null);
+    } else {
+      setEncomendas([...encomendas, form]);
+    }
+    setForm({
+      nome: "",
+      item: "",
+      quantidade: "",
+      valor: "",
+      pagamento: "",
+      data: "",
+      status: "",
+    });
+  };
+
+  const editar = (index) => {
+    setForm(encomendas[index]);
+    setEditIndex(index);
+  };
+
+  const excluir = (index) => {
+    const nova = [...encomendas];
+    nova.splice(index, 1);
+    setEncomendas(nova);
+  };
+
+  const adicionarGasto = () => {
+    setGastos([...gastos, form]);
+    setForm({
+      nome: "",
+      item: "",
+      quantidade: "",
+      valor: "",
+      pagamento: "",
+      data: "",
+      status: "",
+    });
+  };
+
+  const excluirGasto = (index) => {
+    const nova = [...gastos];
+    nova.splice(index, 1);
+    setGastos(nova);
+  };
+
+  const calcularRelatorio = () => {
+    let total = 0;
+    encomendas.forEach((e) => {
+      const val = parseFloat(String(e.valor).replace("R$", "").replace(",", ".")) || 0;
+      if (e.pagamento === "50") total += val * 0.5;
+      else total += val;
+    });
+    const gastosTotal = gastos.reduce((acc, g) => {
+      const val = parseFloat(String(g.valor).replace("R$", "").replace(",", ".")) || 0;
+      return acc + val;
+    }, 0);
+    return {
+      arrecadado: total,
+      gastos: gastosTotal,
+      lucro: total - gastosTotal,
     };
-    setEncomendas([nova, ...encomendas]);
-    setNovaEncomenda({ nome: "", item: "", quantidade: "", valor: "", pagamento: "nao_pago", dataEntrega: "", status: "pendente" });
   };
 
-  const handleRemoveEncomenda = (id) => {
-    setEncomendas(encomendas.filter((e) => e.id !== id));
-  };
+  const relatorio = calcularRelatorio();
 
-  const handleRemoveGasto = (id) => {
-    setGastos(gastos.filter((g) => g.id !== id));
-  };
+  const listaFiltrada = encomendas.filter((e) => {
+    const nomeMatch = e.nome.toLowerCase().includes(filtro.toLowerCase());
+    const statusMatch = filtroStatus === "" || e.status === filtroStatus;
+    return nomeMatch && statusMatch;
+  });
 
-  const handleAddGasto = () => {
-    if (!novoGasto.descricao || !novoGasto.valor) return;
-    const novo = {
-      ...novoGasto,
-      id: Date.now(),
-      valor: parseFloat(novoGasto.valor.replace("R$", "").replace(",", ".")) || 0
-    };
-    setGastos([novo, ...gastos]);
-    setNovoGasto({ descricao: "", valor: "" });
-  };
-
-  const totalArrecadado = encomendas.reduce((acc, e) => {
-    if (e.pagamento === "pago") return acc + Number(e.valor || 0);
-    if (e.pagamento === "sinal") return acc + Number(e.valor || 0) / 2;
-    return acc;
-  }, 0);
-
-  const totalGastos = gastos.reduce((acc, g) => acc + Number(g.valor || 0), 0);
-
-  const lucroLiquido = totalArrecadado - totalGastos;
-
-  const encomendasFiltradas = filtroStatus ? encomendas.filter(e => e.status === filtroStatus) : encomendas;
-
-  const handleEditar = (encomenda) => {
-    setEditando({ ...encomenda });
-  };
-
-  const handleSalvar = () => {
-    setEncomendas(encomendas.map(e => e.id === editando.id ? editando : e));
-    setEditando(null);
-  };
-
-  const handleCancelar = () => {
-    setEditando(null);
+  const corStatus = (status) => {
+    switch (status) {
+      case "pendente": return "bg-yellow-200";
+      case "finalizado": return "bg-blue-200";
+      case "entregue": return "bg-green-200";
+      default: return "";
+    }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-pink-100 via-blue-50 to-white text-gray-800 p-4">
-      <header className="text-center py-4 text-2xl font-bold text-pink-600">Doces com Amor 🍬</header>
+    <div className="min-h-screen bg-gradient-to-tr from-pink-100 via-white to-blue-100 text-gray-800 p-4">
+      <h1 className="text-3xl font-bold text-center mb-6">Doces com Amor</h1>
 
-      <nav className="flex flex-wrap justify-center gap-2 my-4 text-sm">
-        <button onClick={() => setAba("encomendas")} className={aba === "encomendas" ? "text-pink-600 font-bold" : "text-gray-500"}>Encomendas</button>
-        <button onClick={() => setAba("gastos")} className={aba === "gastos" ? "text-pink-600 font-bold" : "text-gray-500"}>Gastos</button>
-        <button onClick={() => setAba("relatorio")} className={aba === "relatorio" ? "text-pink-600 font-bold" : "text-gray-500"}>Relatório</button>
-        <button onClick={() => setAba("filtros")} className={aba === "filtros" ? "text-pink-600 font-bold" : "text-gray-500"}>Filtros</button>
-      </nav>
+      {/* Navegação */}
+      <div className="flex justify-center gap-4 mb-6">
+        {["encomendas", "gastos", "relatorio", "filtro"].map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setAba(tab)}
+            className={`px-4 py-2 rounded-full shadow ${aba === tab ? "bg-pink-300" : "bg-white"}`}
+          >
+            {tab.charAt(0).toUpperCase() + tab.slice(1)}
+          </button>
+        ))}
+      </div>
 
+      {/* Formulário */}
       {aba === "encomendas" && (
-        <div className="max-w-full overflow-x-auto bg-white shadow rounded p-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 mb-4">
-            <input value={novaEncomenda.nome} onChange={e => setNovaEncomenda({ ...novaEncomenda, nome: e.target.value })} placeholder="Nome do Cliente" className="border p-2 rounded" />
-            <input value={novaEncomenda.item} onChange={e => setNovaEncomenda({ ...novaEncomenda, item: e.target.value })} placeholder="Item" className="border p-2 rounded" />
-            <input value={novaEncomenda.quantidade} onChange={e => setNovaEncomenda({ ...novaEncomenda, quantidade: e.target.value })} placeholder="Quantidade" className="border p-2 rounded" />
-            <input value={novaEncomenda.valor} onChange={e => setNovaEncomenda({ ...novaEncomenda, valor: e.target.value })} placeholder="Valor (R$ 00,00)" className="border p-2 rounded" />
-            <select value={novaEncomenda.pagamento} onChange={e => setNovaEncomenda({ ...novaEncomenda, pagamento: e.target.value })} className="border p-2 rounded">
-              <option value="nao_pago">Não Pago</option>
-              <option value="sinal">Sinal (50%)</option>
+        <>
+          <div className="max-w-md mx-auto bg-white p-4 rounded-2xl shadow space-y-2 mb-6">
+            <input name="nome" value={form.nome} onChange={handleInput} placeholder="Nome do Cliente" className="input" />
+            <input name="item" value={form.item} onChange={handleInput} placeholder="Item" className="input" />
+            <input name="quantidade" value={form.quantidade} onChange={handleInput} placeholder="Quantidade" className="input" />
+            <input name="valor" value={form.valor} onChange={handleInput} placeholder="R$ 00,00" className="input" />
+            <select name="pagamento" value={form.pagamento} onChange={handleInput} className="input">
+              <option value="">Selecione Pagamento</option>
               <option value="pago">Pago</option>
+              <option value="nao">Não Pago</option>
+              <option value="50">Sinal de 50%</option>
             </select>
-            <input value={novaEncomenda.dataEntrega} onChange={e => setNovaEncomenda({ ...novaEncomenda, dataEntrega: e.target.value })} type="date" className="border p-2 rounded" />
-            <select value={novaEncomenda.status} onChange={e => setNovaEncomenda({ ...novaEncomenda, status: e.target.value })} className="border p-2 rounded">
+            <input name="data" value={form.data} onChange={handleInput} placeholder="Data (15-04-2025)" className="input" />
+            <select name="status" value={form.status} onChange={handleInput} className="input">
+              <option value="">Selecione Status</option>
               <option value="pendente">Pendente</option>
-              <option value="atrasado">Atrasado</option>
+              <option value="finalizado">Finalizado</option>
+              <option value="entregue">Entregue</option>
             </select>
-            <button onClick={handleAddEncomenda} className="bg-pink-500 text-white rounded px-4 py-2 w-full sm:w-auto">Adicionar</button>
+            <button onClick={adicionar} className="w-full bg-pink-400 text-white py-2 rounded-full">
+              {editIndex !== null ? "Atualizar" : "Adicionar"}
+            </button>
           </div>
 
+          {/* Tabela */}
           <div className="overflow-x-auto">
-            <table className="min-w-[700px] w-full text-left border-t">
+            <table className="min-w-full bg-white rounded-xl shadow">
               <thead>
-                <tr className="bg-pink-100">
-                  <th className="p-2">Cliente</th>
-                  <th className="p-2">Item</th>
-                  <th className="p-2">Qtd</th>
-                  <th className="p-2">Valor</th>
-                  <th className="p-2">Pagamento</th>
-                  <th className="p-2">Entrega</th>
-                  <th className="p-2">Status</th>
-                  <th className="p-2">Ações</th>
+                <tr className="bg-pink-200 text-left">
+                  <th className="px-4 py-2">Nome</th>
+                  <th className="px-4 py-2">Item</th>
+                  <th className="px-4 py-2">Qtd</th>
+                  <th className="px-4 py-2">Valor</th>
+                  <th className="px-4 py-2">Pagamento</th>
+                  <th className="px-4 py-2">Entrega</th>
+                  <th className="px-4 py-2">Status</th>
+                  <th className="px-4 py-2">Ações</th>
                 </tr>
               </thead>
               <tbody>
-                {encomendasFiltradas.map((e) => (
-                  <tr key={e.id} className="border-t">
-                    <td className="p-2 whitespace-nowrap">{e.nome}</td>
-                    <td className="p-2 whitespace-nowrap">{e.item}</td>
-                    <td className="p-2 whitespace-nowrap">{e.quantidade}</td>
-                    <td className="p-2 whitespace-nowrap">{formatarValor(e.valor)}</td>
-                    <td className="p-2 whitespace-nowrap">{e.pagamento}</td>
-                    <td className="p-2 whitespace-nowrap">{e.dataEntrega}</td>
-                    <td className="p-2 whitespace-nowrap">{e.status}</td>
-                    <td className="p-2 whitespace-nowrap">
-                      <div className="flex gap-2">
-                        <button onClick={() => handleEditar(e)} className="text-blue-500"><Edit2 size={16} /></button>
-                        <button onClick={() => handleRemoveEncomenda(e.id)} className="text-red-500"><Trash2 size={16} /></button>
-                      </div>
+                {encomendas.map((e, i) => (
+                  <tr key={i} className={corStatus(e.status)}>
+                    <td className="px-4 py-2">{e.nome}</td>
+                    <td className="px-4 py-2">{e.item}</td>
+                    <td className="px-4 py-2">{e.quantidade}</td>
+                    <td className="px-4 py-2">R$ {e.valor}</td>
+                    <td className="px-4 py-2">{e.pagamento}</td>
+                    <td className="px-4 py-2">{e.data}</td>
+                    <td className="px-4 py-2">{e.status}</td>
+                    <td className="px-4 py-2 space-x-2">
+                      <button onClick={() => editar(i)}>✏️</button>
+                      <button onClick={() => excluir(i)}>🗑️</button>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </div>
+        </>
       )}
 
-      {aba === "relatorio" && (
-        <div className="bg-white shadow rounded p-4 mt-4">
-          <h2 className="text-lg font-semibold mb-2">Relatório Financeiro</h2>
-          <p>Total Arrecadado: <strong>{formatarValor(totalArrecadado)}</strong></p>
-          <p>Total de Gastos: <strong>{formatarValor(totalGastos)}</strong></p>
-          <p>Lucro Líquido: <strong>{formatarValor(lucroLiquido)}</strong></p>
-        </div>
-      )}
-
+      {/* Gastos */}
       {aba === "gastos" && (
-        <div className="bg-white shadow rounded p-4 mt-4">
-          <h2 className="text-lg font-semibold mb-2">Gastos</h2>
-          <div className="flex gap-2 mb-2 flex-wrap">
-            <input value={novoGasto.descricao} onChange={e => setNovoGasto({ ...novoGasto, descricao: e.target.value })} placeholder="Descrição" className="border p-2 rounded flex-1" />
-            <input value={novoGasto.valor} onChange={e => setNovoGasto({ ...novoGasto, valor: e.target.value })} placeholder="Valor (R$)" className="border p-2 rounded flex-1" />
-            <button onClick={handleAddGasto} className="bg-blue-500 text-white rounded px-4 py-2">Adicionar</button>
-          </div>
-          <ul className="space-y-2">
-            {gastos.map(g => (
-              <li key={g.id} className="flex justify-between items-center border-b pb-1">
-                <span>{g.descricao} - {formatarValor(g.valor)}</span>
-                <button onClick={() => handleRemoveGasto(g.id)} className="text-red-500"><Trash2 size={16} /></button>
+        <div className="max-w-md mx-auto bg-white p-4 rounded-2xl shadow space-y-2">
+          <input name="nome" value={form.nome} onChange={handleInput} placeholder="Descrição do Gasto" className="input" />
+          <input name="valor" value={form.valor} onChange={handleInput} placeholder="R$ 00,00" className="input" />
+          <button onClick={adicionarGasto} className="w-full bg-pink-400 text-white py-2 rounded-full">Adicionar Gasto</button>
+          <ul>
+            {gastos.map((g, i) => (
+              <li key={i} className="flex justify-between py-2 border-b">
+                <span>{g.nome}</span>
+                <span>R$ {g.valor}</span>
+                <button onClick={() => excluirGasto(i)}>🗑️</button>
               </li>
             ))}
           </ul>
         </div>
       )}
 
-      {aba === "filtros" && (
-        <div className="bg-white shadow rounded p-4 mt-4">
-          <h2 className="text-lg font-semibold mb-2">Filtrar por Status</h2>
-          <select value={filtroStatus} onChange={e => setFiltroStatus(e.target.value)} className="border p-2 rounded">
-            <option value="">Todos</option>
+      {/* Relatório */}
+      {aba === "relatorio" && (
+        <div className="max-w-md mx-auto bg-white p-6 rounded-2xl shadow text-center space-y-2">
+          <h2 className="text-xl font-bold">Relatório Financeiro</h2>
+          <p>Total Arrecadado: <strong>R$ {relatorio.arrecadado.toFixed(2)}</strong></p>
+          <p>Total de Gastos: <strong>R$ {relatorio.gastos.toFixed(2)}</strong></p>
+          <p>Lucro Líquido: <strong>R$ {relatorio.lucro.toFixed(2)}</strong></p>
+        </div>
+      )}
+
+      {/* Filtro */}
+      {aba === "filtro" && (
+        <div className="max-w-md mx-auto bg-white p-4 rounded-2xl shadow space-y-2">
+          <input value={filtro} onChange={(e) => setFiltro(e.target.value)} placeholder="Buscar por nome" className="input" />
+          <select value={filtroStatus} onChange={(e) => setFiltroStatus(e.target.value)} className="input">
+            <option value="">Todos os Status</option>
             <option value="pendente">Pendente</option>
-            <option value="atrasado">Atrasado</option>
+            <option value="finalizado">Finalizado</option>
+            <option value="entregue">Entregue</option>
           </select>
+          <div className="mt-4">
+            <h3 className="font-semibold">Resultados:</h3>
+            {listaFiltrada.map((e, i) => (
+              <div key={i} className="border p-2 my-1 rounded shadow bg-blue-50">
+                {e.nome} - {e.status}
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
   );
 }
+
+// Estilo global para input
+const inputStyle = document.createElement("style");
+inputStyle.innerHTML = `
+  .input {
+    width: 100%;
+    padding: 0.5rem;
+    border-radius: 0.5rem;
+    border: 1px solid #ddd;
+  }
+`;
+document.head.appendChild(inputStyle);
