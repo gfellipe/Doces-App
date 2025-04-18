@@ -122,11 +122,20 @@ export default function App() {
     }
   };
 
+  const formatDateToDisplay = (isoDate) => {
+    const [year, month, day] = isoDate.split("-");
+    return `${day}-${month}-${year}`;
+  };
+
+  const formatDateToInput = (displayDate) => {
+    const [day, month, year] = displayDate.split("-");
+    return `${year}-${month}-${day}`;
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-tr from-pink-100 via-white to-blue-100 text-gray-800 p-4">
       <h1 className="text-3xl font-bold text-center mb-6">Doces com Amor</h1>
 
-      {/* Navegação */}
       <div className="flex justify-center gap-4 mb-6">
         {["encomendas", "gastos", "relatorio", "filtro"].map((tab) => (
           <button
@@ -139,7 +148,6 @@ export default function App() {
         ))}
       </div>
 
-      {/* Formulário */}
       {aba === "encomendas" && (
         <>
           <div className="max-w-md mx-auto bg-white p-4 rounded-2xl shadow space-y-2 mb-6">
@@ -153,7 +161,16 @@ export default function App() {
               <option value="nao">Não Pago</option>
               <option value="50">Sinal de 50%</option>
             </select>
-            <input name="data" value={form.data} onChange={handleInput} placeholder="Data (15-04-2025)" className="input" />
+            <input
+              type="date"
+              name="data"
+              value={form.data ? formatDateToInput(form.data) : ""}
+              onChange={(e) => {
+                const val = e.target.value;
+                setForm((f) => ({ ...f, data: formatDateToDisplay(val) }));
+              }}
+              className="input"
+            />
             <select name="status" value={form.status} onChange={handleInput} className="input">
               <option value="">Selecione Status</option>
               <option value="pendente">Pendente</option>
@@ -165,7 +182,6 @@ export default function App() {
             </button>
           </div>
 
-          {/* Tabela */}
           <div className="overflow-x-auto">
             <table className="min-w-full bg-white rounded-xl shadow">
               <thead>
@@ -202,7 +218,6 @@ export default function App() {
         </>
       )}
 
-      {/* Gastos */}
       {aba === "gastos" && (
         <div className="max-w-md mx-auto bg-white p-4 rounded-2xl shadow space-y-2">
           <input name="nome" value={form.nome} onChange={handleInput} placeholder="Descrição do Gasto" className="input" />
@@ -220,7 +235,6 @@ export default function App() {
         </div>
       )}
 
-      {/* Relatório */}
       {aba === "relatorio" && (
         <div className="max-w-md mx-auto bg-white p-6 rounded-2xl shadow text-center space-y-2">
           <h2 className="text-xl font-bold">Relatório Financeiro</h2>
@@ -230,7 +244,6 @@ export default function App() {
         </div>
       )}
 
-      {/* Filtro */}
       {aba === "filtro" && (
         <div className="max-w-md mx-auto bg-white p-4 rounded-2xl shadow space-y-2">
           <input value={filtro} onChange={(e) => setFiltro(e.target.value)} placeholder="Buscar por nome" className="input" />
@@ -254,7 +267,6 @@ export default function App() {
   );
 }
 
-// Estilo global para input
 const inputStyle = document.createElement("style");
 inputStyle.innerHTML = `
   .input {
